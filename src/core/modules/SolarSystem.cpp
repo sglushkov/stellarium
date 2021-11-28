@@ -94,7 +94,8 @@ SolarSystem::SolarSystem() : StelObjectModule()
 	, ephemerisDatesDisplayed(false)
 	, ephemerisMagnitudesDisplayed(false)
 	, ephemerisHorizontalCoordinates(false)
-	, ephemerisLineDisplayed(false)	
+	, ephemerisLineDisplayed(false)
+	, ephemerisAlwaysOn(false)
 	, ephemerisLineThickness(1)
 	, ephemerisSkipDataDisplayed(false)
 	, ephemerisSkipMarkersDisplayed(false)
@@ -102,7 +103,6 @@ SolarSystem::SolarSystem() : StelObjectModule()
 	, ephemerisDataLimit(1)
 	, ephemerisSmartDatesDisplayed(true)
 	, ephemerisScaleMarkersDisplayed(false)
-	, ephemerisAlwaysOn(false)
 	, ephemerisGenericMarkerColor(Vec3f(1.0f, 1.0f, 0.0f))
 	, ephemerisSecondaryMarkerColor(Vec3f(0.7f, 0.7f, 1.0f))
 	, ephemerisSelectedMarkerColor(Vec3f(1.0f, 0.7f, 0.0f))
@@ -400,11 +400,11 @@ void SolarSystem::updateSkyCulture(const QString& skyCultureDir)
 
 	// Now parse the file
 	// lines to ignore which start with a # or are empty
-	QRegExp commentRx("^(\\s*#.*|\\s*)$");
+	QRegularExpression commentRx("^(\\s*#.*|\\s*)$");
 
 	// lines which look like records - we use the RE to extract the fields
 	// which will be available in recRx.capturedTexts()
-	QRegExp recRx("^\\s*(\\w+)\\s+\"(.+)\"\\s+_[(]\"(.+)\"[)]\\n");
+	QRegularExpression recRx("^\\s*(\\w+)\\s+\"(.+)\"\\s+_[(]\"(.+)\"[)]\\n");
 
 	QString record, planetId, nativeName, nativeNameMeaning;
 
@@ -418,20 +418,21 @@ void SolarSystem::updateSkyCulture(const QString& skyCultureDir)
 		lineNumber++;
 
 		// Skip comments
-		if (commentRx.exactMatch(record))
+		if (commentRx.match(record).hasMatch())
 			continue;
 
 		totalRecords++;
 
-		if (!recRx.exactMatch(record))
+		QRegularExpressionMatch match=recRx.match(record);
+		if (!match.hasMatch())
 		{
 			qWarning() << "ERROR - cannot parse record at line" << lineNumber << "in planet names file" << QDir::toNativeSeparators(namesFile);
 		}
 		else
 		{
-			planetId = recRx.cap(1).trimmed();
-			nativeName = recRx.cap(2).trimmed();
-			nativeNameMeaning = recRx.cap(3).trimmed();
+			planetId          = match.captured(1).trimmed();
+			nativeName        = match.captured(2).trimmed();
+			nativeNameMeaning = match.captured(3).trimmed();
 			planetNativeNamesMap[planetId] = nativeName;
 			planetNativeNamesMeaningMap[planetId] = nativeNameMeaning;
 			readOk++;

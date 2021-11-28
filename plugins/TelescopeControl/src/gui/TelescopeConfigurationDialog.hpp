@@ -85,7 +85,11 @@ signals:
 
 private:
 	QStringList deviceModelNames;
+<<<<<<< HEAD
 
+=======
+	
+>>>>>>> dd006bc4095790dba6ceb7fe485284a6804a9fd4
 	QRegularExpressionValidator * telescopeNameValidator;
 	QRegularExpressionValidator * hostNameValidator;
 	QRegularExpressionValidator * circleListValidator;
