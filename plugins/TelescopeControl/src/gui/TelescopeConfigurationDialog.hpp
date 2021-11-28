@@ -86,10 +86,10 @@ signals:
 private:
 	QStringList deviceModelNames;
 
-		QRegularExpressionValidator * telescopeNameValidator;
-		QRegularExpressionValidator * hostNameValidator;
-		QRegularExpressionValidator * circleListValidator;
-		QRegularExpressionValidator * serialPortValidator;
+	QRegularExpressionValidator * telescopeNameValidator;
+	QRegularExpressionValidator * hostNameValidator;
+	QRegularExpressionValidator * circleListValidator;
+	QRegularExpressionValidator * serialPortValidator;
 
 	#ifdef Q_OS_WIN
 	TelescopeClientASCOMWidget* ascomWidget;
