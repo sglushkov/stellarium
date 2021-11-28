@@ -108,6 +108,7 @@ TelescopeControl::TelescopeControl()
 	connectionTypeNames.insert(ConnectionRemote, "remote");
 	connectionTypeNames.insert(ConnectionRTS2, "RTS2");
 	connectionTypeNames.insert(ConnectionINDI, "INDI");
+	connectionTypeNames.insert(ConnectionINDIGO, "INDIGO");
 	connectionTypeNames.insert(ConnectionASCOM, "ASCOM");
 }
 
@@ -130,19 +131,19 @@ void TelescopeControl::init()
 		loadConfiguration();
 		//Make sure that such a section is created, if it doesn't exist
 		saveConfiguration();
-		
+
 		//Make sure that the module directory exists
 		QString moduleDirectoryPath = StelFileMgr::getUserDir() + "/modules/TelescopeControl";
 		if(!StelFileMgr::exists(moduleDirectoryPath))
 			StelFileMgr::mkDir(moduleDirectoryPath);
-		
+
 		//Load the device models
 		loadDeviceModels();
 		if(deviceModels.isEmpty())
 		{
 			qWarning() << "[TelescopeControl] No device model descriptions have been loaded. Stellarium will not be able to control a telescope on its own, but it is still possible to do it through an external application or to connect to a remote host.";
 		}
-		
+
 		//Unload Stellarium's internal telescope control module
 		//(not necessary since revision 6308; remains as an example)
 		//StelApp::getInstance().getModuleMgr().unloadModule("TelescopeMgr", false);
@@ -152,10 +153,10 @@ void TelescopeControl::init()
 			normally, but Stellarium crashed later with a segmentation fault,
 			because LandscapeMgr::getCallOrder() depended on the module's
 			existence to return a value.*/
-		
+
 		//Load and start all telescope clients
 		loadTelescopes();
-		
+
 		//Load OpenGL textures
 		reticleTexture = StelApp::getInstance().getTextureManager().createTexture(":/telescopeControl/telescope_reticle.png");
 		selectionTexture = StelApp::getInstance().getTextureManager().createTexture(StelFileMgr::getInstallationDir()+"/textures/pointeur2.png");
@@ -219,14 +220,14 @@ void TelescopeControl::init()
 		qWarning() << "[TelescopeControl] init() error: " << e.what();
 		return;
 	}
-	
+
 	GETSTELMODULE(StelObjectMgr)->registerStelObjectMgr(this);
 }
 
 void TelescopeControl::translateActionDescriptions()
 {
 	StelActionMgr* actionMgr = StelApp::getInstance().getStelActionManager();
-	
+
 	for (int i = MIN_SLOT_NUMBER; i <= MAX_SLOT_NUMBER; i++)
 	{
 		QString name;
@@ -239,7 +240,7 @@ void TelescopeControl::translateActionDescriptions()
 		name = syncActionId.arg(i);
 		description = q_("Abort last slew command of telescope #%1").arg(i);
 		actionMgr->findAction(name)->setText(description);
-		
+
 		name = moveToCenterActionId.arg(i);
 		description = q_("Move telescope #%1 to the point currently in the center of the screen").arg(i);
 		actionMgr->findAction(name)->setText(description);
@@ -862,6 +863,13 @@ void TelescopeControl::loadTelescopes()
 			deviceModelName = telescope.value("device_model").toString();
 		}
 
+		if (connectionType == ConnectionINDIGO)
+		{
+			portTCP = telescope.value("tcp_port").toInt();
+			hostName = telescope.value("host_name").toString();
+			deviceModelName = telescope.value("device_model").toString();
+		}
+
 		if (connectionType == ConnectionASCOM)
 		{
 			ascomDeviceId = telescope.value("ascom_device_id").toString();
@@ -1018,6 +1026,13 @@ bool TelescopeControl::addTelescopeAtSlot(int slot, ConnectionType connectionTyp
 		telescope.insert("device_model", deviceModelName);
 	}
 
+	if (connectionType == ConnectionINDIGO)
+	{
+		telescope.insert("host_name", host);
+		telescope.insert("tcp_port", portTCP);
+		telescope.insert("device_model", deviceModelName);
+	}
+
 	if (connectionType == ConnectionASCOM)
 	{
 		telescope.insert("ascom_device_id", ascomDeviceId);
@@ -1130,6 +1145,10 @@ bool TelescopeControl::getTelescopeAtSlot(int slot, ConnectionType& connectionTy
 		rts2Refresh = telescope.value("refresh", DEFAULT_RTS2_REFRESH).toInt();
 	}
 	if(connectionType == ConnectionINDI)
+	{
+		deviceModelName = telescope.value("device_model").toString();
+	}
+	if(connectionType == ConnectionINDIGO)
 	{
 		deviceModelName = telescope.value("device_model").toString();
 	}
@@ -1386,6 +1405,10 @@ bool TelescopeControl::startClientAtSlot(int slotNumber, ConnectionType connecti
 		initString = QString("%1:%2:%3:%4:%5:%6").arg(name, "INDI", "J2000", host, QString::number(portTCP), deviceModelName);
 		break;
 
+	case ConnectionINDIGO:
+		initString = QString("%1:%2:%3:%4:%5:%6").arg(name, "INDIGO", "J2000", host, QString::number(portTCP), deviceModelName);
+		break;
+
 	case ConnectionASCOM:
 		initString = QString("%1:%2:%3:%4:%5").arg(name, "ASCOM", equinox, ascomDeviceId, ascomUseDeviceEqCoordType ? "true" : "false");
 		break;
@@ -1443,7 +1466,7 @@ bool TelescopeControl::stopClientAtSlot(int slotNumber)
 void TelescopeControl::loadDeviceModels()
 {
 	//qDebug() << "TelescopeControl: Loading device model descriptions...";
-	
+
 	//Make sure that the device models file exists
 	bool useDefaultList = false;
 	QString deviceModelsJsonPath = StelFileMgr::findFile("modules/TelescopeControl", static_cast<StelFileMgr::Flags>(StelFileMgr::Directory|StelFileMgr::Writable)) + "/device_models.json";
@@ -1584,11 +1607,11 @@ void TelescopeControl::loadDeviceModels()
 			}
 			//else: everything is OK, using embedded server
 		}
-		
+
 		//Description and default connection delay
 		QString description = model.value("description", "No description is available.").toString();
 		int delay = model.value("default_delay", DEFAULT_DELAY).toInt();
-		
+
 		//Add this to the main list
 		DeviceModel newDeviceModel = {name, description, server, delay, useExecutable};
 		deviceModels.insert(name, newDeviceModel);
@@ -1784,4 +1807,3 @@ void TelescopeControl::translations()
 			N_("The Sky-Watcher SynScan AZ GOTO mount used in a number of telescope models.")
 		#endif
 }
-
